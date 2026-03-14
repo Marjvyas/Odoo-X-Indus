@@ -5,8 +5,9 @@ const EMPTY_FORM = { from: '', to: '', product: '', quantity: '' }
 
 function StatusBadge({ status }) {
   const styles = {
-    Done:    'bg-emerald-100 text-emerald-700',
-    Pending: 'bg-amber-100 text-amber-700',
+    Done:      'bg-emerald-100 text-emerald-700',
+    Completed: 'bg-emerald-100 text-emerald-700',
+    Pending:   'bg-amber-100 text-amber-700',
   }
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
@@ -26,8 +27,14 @@ export default function Transfers({ warehouses = [], setWarehouses }) {
   // Derive locations from warehouses prop
   const locations = warehouses.map(w => w.name)
 
-  useEffect(() => {
+  const refreshData = () => {
     getTransfers().then((data) => { setTransfers(data); setLoading(false) })
+  }
+
+  useEffect(() => {
+    refreshData()
+    const interval = setInterval(refreshData, 2000) // Auto-sync every 2s
+    return () => clearInterval(interval)
   }, [])
 
   const handleSubmit = async (e) => {

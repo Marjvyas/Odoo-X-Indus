@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import Sidebar from './components/sidebar'
 import Navbar from './components/navbar'
+import EmployeeSidebar from './components/EmployeeSidebar'
 import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
 import Reciepts from './pages/Reciepts'
 import Delivery from './pages/Delivery'
 import Transfers from './pages/Transfers'
 import Warehouses from './pages/Warehouses'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import EmployeeDeliveries from './pages/EmployeeDeliveries'
+import EmployeeTransfers from './pages/EmployeeTransfers'
 
-const pageTitles = {
+const ownerPageTitles = {
   dashboard: 'Dashboard',
   products: 'Products',
   receipts: 'Receipts',
@@ -19,18 +24,26 @@ const pageTitles = {
   settings: 'Warehouse Settings',
 }
 
+const employeePageTitles = {
+  'emp-deliveries': 'Assigned Deliveries',
+  'emp-transfers': 'Pending Transfers',
+}
+
 function App() {
+  const [userRole, setUserRole] = useState(null) // null = not logged in, 'owner', 'employee'
+  const [userName, setUserName] = useState('')
   const [currentPage, setCurrentPage] = useState('dashboard')
-  
+  const [empPage, setEmpPage] = useState('emp-deliveries')
+
   // Lifted state for warehouses shared between Warehouses and Transfers pages
   const [warehouses, setWarehouses] = useState([
-    { 
-      id: 1, 
-      name: "Main Warehouse", 
-      location: "Ahmedabad", 
-      products: 4, 
-      quantity: 4200, 
-      lowStock: 1, 
+    {
+      id: 1,
+      name: "Main Warehouse",
+      location: "Ahmedabad",
+      products: 4,
+      quantity: 4200,
+      lowStock: 1,
       updated: "Today",
       inventory: [
         { id: 101, name: "Steel Rods", sku: "SR-001", quantity: 2000, category: "Raw Material", lastMoved: "Today" },
@@ -39,13 +52,13 @@ function App() {
         { id: 104, name: "Circuit Board", sku: "CB-550", quantity: 50, category: "Components", lastMoved: "Today" },
       ]
     },
-    { 
-      id: 2, 
-      name: "Production Store", 
-      location: "Factory Floor", 
-      products: 3, 
-      quantity: 2100, 
-      lowStock: 0, 
+    {
+      id: 2,
+      name: "Production Store",
+      location: "Factory Floor",
+      products: 3,
+      quantity: 2100,
+      lowStock: 0,
       updated: "Yesterday",
       inventory: [
         { id: 201, name: "Steel Rods", sku: "SR-001", quantity: 1000, category: "Raw Material", lastMoved: "2 days ago" },
@@ -53,27 +66,27 @@ function App() {
         { id: 203, name: "Plastic Case", sku: "PC-105", quantity: 300, category: "Parts", lastMoved: "Yesterday" },
       ]
     },
-    { 
-      id: 3, 
-      name: "Retail Warehouse", 
-      location: "Mumbai", 
-      products: 3, 
-      quantity: 980, 
-      lowStock: 1, 
+    {
+      id: 3,
+      name: "Retail Warehouse",
+      location: "Mumbai",
+      products: 3,
+      quantity: 980,
+      lowStock: 1,
       updated: "2 days ago",
       inventory: [
-         { id: 301, name: "Circuit Board", sku: "CB-550", quantity: 400, category: "Components", lastMoved: "5 days ago" },
-         { id: 302, name: "Wireless Mouse", sku: "WM-002", quantity: 500, category: "Electronics", lastMoved: "Today" },
-         { id: 303, name: "USB-C Cable", sku: "USBC-001", quantity: 80, category: "Electronics", lastMoved: "Yesterday" },
+        { id: 301, name: "Circuit Board", sku: "CB-550", quantity: 400, category: "Components", lastMoved: "5 days ago" },
+        { id: 302, name: "Wireless Mouse", sku: "WM-002", quantity: 500, category: "Electronics", lastMoved: "Today" },
+        { id: 303, name: "USB-C Cable", sku: "USBC-001", quantity: 80, category: "Electronics", lastMoved: "Yesterday" },
       ]
     },
-    { 
-      id: 4, 
-      name: "Spare Parts Store", 
-      location: "Delhi", 
-      products: 2, 
-      quantity: 450, 
-      lowStock: 0, 
+    {
+      id: 4,
+      name: "Spare Parts Store",
+      location: "Delhi",
+      products: 2,
+      quantity: 450,
+      lowStock: 0,
       updated: "Just now",
       inventory: [
         { id: 401, name: "Monitor Cleaner", sku: "MC-008", quantity: 200, category: "Accessories", lastMoved: "Today" },
@@ -82,30 +95,93 @@ function App() {
     }
   ]);
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard':   return <Dashboard />
-      case 'products':    return <Products />
-      case 'receipts':    return <Reciepts />
-      case 'delivery':    return <Delivery />
-      case 'transfers':   return <Transfers warehouses={warehouses} setWarehouses={setWarehouses} />
-      case 'adjustments': return <InventoryAdjustments />
-      case 'warehouses':  return <Warehouses warehouses={warehouses} setWarehouses={setWarehouses} />
-      default:            return <Dashboard />
-    }
+  const handleLogin = (role, name) => {
+    setUserRole(role)
+    setUserName(name)
+    setCurrentPage('dashboard')
+    setEmpPage('emp-deliveries')
   }
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
-      <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Navbar title={pageTitles[currentPage] || 'Dashboard'} />
-        <main className="flex-1 overflow-y-auto p-6">
-          {renderPage()}
-        </main>
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    setUserRole(null)
+    setUserName('')
+  }
+
+  // Not logged in — show login page
+  if (!userRole) {
+    if (window.location.pathname === '/register') {
+      return <RegisterPage onRegister={handleLogin} />
+    }
+    return <LoginPage onLogin={handleLogin} />
+  }
+
+  // ── Owner Layout ──────────────────────────────────────────────────────────────
+  if (userRole === 'owner') {
+    const renderOwnerPage = () => {
+      switch (currentPage) {
+        case 'dashboard': return <Dashboard />
+        case 'products': return <Products />
+        case 'receipts': return <Reciepts />
+        case 'delivery': return <Delivery />
+        case 'transfers': return <Transfers warehouses={warehouses} setWarehouses={setWarehouses} />
+        case 'adjustments': return <InventoryAdjustments />
+        case 'warehouses': return <Warehouses warehouses={warehouses} setWarehouses={setWarehouses} />
+        default: return <Dashboard />
+      }
+    }
+
+    return (
+      <div className="flex h-screen overflow-hidden bg-slate-100">
+        <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Navbar
+            title={ownerPageTitles[currentPage] || 'Dashboard'}
+            userRole={userRole}
+            userName={userName}
+            onLogout={handleLogout}
+          />
+          <main className="flex-1 overflow-y-auto p-6">
+            {renderOwnerPage()}
+          </main>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  // ── Employee Layout ────────────────────────────────────────────────────────────
+  if (userRole === 'employee') {
+    const renderEmployeePage = () => {
+      switch (empPage) {
+        case 'emp-deliveries': return <EmployeeDeliveries />
+        case 'emp-transfers': return <EmployeeTransfers />
+        default: return <EmployeeDeliveries />
+      }
+    }
+
+    return (
+      <div className="flex h-screen overflow-hidden bg-slate-100">
+        <EmployeeSidebar
+          currentPage={empPage}
+          setCurrentPage={setEmpPage}
+          userName={userName}
+          onLogout={handleLogout}
+        />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Navbar
+            title={employeePageTitles[empPage] || 'Employee Dashboard'}
+            userRole={userRole}
+            userName={userName}
+            onLogout={handleLogout}
+          />
+          <main className="flex-1 overflow-y-auto p-6">
+            {renderEmployeePage()}
+          </main>
+        </div>
+      </div>
+    )
+  }
 }
 
 // Inline placeholder for Inventory Adjustments (page not yet created)

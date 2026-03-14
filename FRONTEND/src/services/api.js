@@ -1,128 +1,198 @@
-// Mock data store — simulates a backend API with in-memory state
+const API_URL = 'http://localhost:5000/api';
 
-let products = [
-  { id: 1, name: 'USB-C Cable',         sku: 'USBC-001',   category: 'Electronics',  unit: 'pcs',    stock: 80 },
-  { id: 2, name: 'Wireless Mouse',       sku: 'WM-002',     category: 'Electronics',  unit: 'pcs',    stock: 12 },
-  { id: 3, name: 'AA Batteries',         sku: 'BAT-AA-003', category: 'Accessories',  unit: 'pack',   stock: 5  },
-  { id: 4, name: 'Laptop Stand',         sku: 'LS-004',     category: 'Furniture',    unit: 'pcs',    stock: 25 },
-  { id: 5, name: 'HDMI Cable',           sku: 'HDMI-005',   category: 'Electronics',  unit: 'pcs',    stock: 0  },
-  { id: 6, name: 'Desk Lamp',            sku: 'DL-006',     category: 'Furniture',    unit: 'pcs',    stock: 9  },
-  { id: 7, name: 'Mechanical Keyboard',  sku: 'KB-007',     category: 'Electronics',  unit: 'pcs',    stock: 42 },
-  { id: 8, name: 'Monitor Cleaner',      sku: 'MC-008',     category: 'Accessories',  unit: 'bottle', stock: 3  },
-]
+// Helper to get token
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
 
-let receipts = [
-  { id: 1, supplier: 'Tech Supplies Co.', product: 'USB-C Cable',    quantity: 100, warehouse: 'Main WH', date: '2026-03-10', status: 'Done'    },
-  { id: 2, supplier: 'Global Parts Ltd',  product: 'Wireless Mouse', quantity: 50,  warehouse: 'Store A', date: '2026-03-11', status: 'Pending' },
-  { id: 3, supplier: 'BatteryWorld',      product: 'AA Batteries',   quantity: 200, warehouse: 'Main WH', date: '2026-03-12', status: 'Done'    },
-]
+export const login = async (email, password) => {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) throw new Error('Login failed');
+  const data = await response.json();
+  localStorage.setItem('token', data.token);
+  return data;
+};
 
-let deliveries = [
-  { id: 1, customer: 'Acme Corp',      product: 'Laptop Stand', quantity: 5,  date: '2026-03-09', status: 'Delivered' },
-  { id: 2, customer: 'Beta Solutions', product: 'HDMI Cable',   quantity: 20, date: '2026-03-11', status: 'Pending'   },
-  { id: 3, customer: 'Gamma Retail',   product: 'Desk Lamp',    quantity: 8,  date: '2026-03-13', status: 'Pending'   },
-]
+// ── Products ─────────────────────────────────────────────────────────────────
+export const getProducts = async () => {
+  const response = await fetch(`${API_URL}/products`, { headers: getAuthHeaders() });
+  return await response.json();
+};
 
-let transfers = [
-  { id: 1, from: 'Main WH', to: 'Store A', product: 'USB-C Cable',   quantity: 30, date: '2026-03-08', status: 'Done'    },
-  { id: 2, from: 'Store A', to: 'Store B', product: 'Wireless Mouse', quantity: 10, date: '2026-03-12', status: 'Pending' },
-]
+export const createProduct = async (productData) => {
+  const response = await fetch(`${API_URL}/products`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(productData),
+  });
+  return await response.json();
+};
 
-let nextId = 100
-
-const delay = (ms = 150) => new Promise((r) => setTimeout(r, ms))
-
-// ── Products ──────────────────────────────────────────────────────────────────
-export const getProducts = async () => { await delay(); return [...products] }
-
-export const createProduct = async (data) => {
-  await delay()
-  const product = { ...data, id: nextId++, stock: Number(data.stock) || 0 }
-  products.push(product)
-  return product
-}
-
-export const updateProduct = async (id, data) => {
-  await delay()
-  products = products.map((p) => p.id === id ? { ...p, ...data, stock: Number(data.stock) } : p)
-  return products.find((p) => p.id === id)
-}
-
-export const deleteProduct = async (id) => {
-  await delay()
-  products = products.filter((p) => p.id !== id)
-}
-
-// ── Receipts ──────────────────────────────────────────────────────────────────
-export const getReceipts = async () => { await delay(); return [...receipts] }
-
-export const createReceipt = async (data) => {
-  await delay()
-  const receipt = {
-    ...data,
-    id: nextId++,
-    quantity: Number(data.quantity),
-    date: new Date().toISOString().slice(0, 10),
-    status: 'Pending',
-  }
-  receipts.unshift(receipt)
-  return receipt
-}
+export const updateProduct = async (id, productData) => {
+  const response = await fetch(`${API_URL}/products/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(productData),
+  });
+  return await response.json();
+};
 
 // ── Deliveries ────────────────────────────────────────────────────────────────
-export const getDeliveries = async () => { await delay(); return [...deliveries] }
+export const getDeliveries = async () => {
+  const response = await fetch(`${API_URL}/deliveries`, { headers: getAuthHeaders() });
+  const data = await response.json();
+  
+  return data.map(delivery => ({
+    id: delivery._id,
+    customer: delivery.customerName,
+    product: delivery.products[0]?.productId?.name || 'Unknown',
+    quantity: delivery.products[0]?.quantity || 0,
+    date: new Date(delivery.createdAt).toISOString().slice(0, 10),
+    status: delivery.status === 'created' ? 'Created' : delivery.status === 'dispatched' ? 'Dispatched' : 'Delivered',
+  }));
+};
 
 export const createDelivery = async (data) => {
-  await delay()
-  const delivery = {
-    ...data,
-    id: nextId++,
-    quantity: Number(data.quantity),
-    date: new Date().toISOString().slice(0, 10),
-    status: 'Pending',
+  const products = await getProducts();
+  const product = products.find(p => p.name.toLowerCase() === data.product.toLowerCase());
+  
+  if (!product) throw new Error('Product not found in database');
+
+  const response = await fetch(`${API_URL}/deliveries`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      customerName: data.customer,
+      products: [{ productId: product._id, quantity: Number(data.quantity) }]
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error creating delivery');
   }
-  deliveries.unshift(delivery)
-  return delivery
-}
+
+  const delivery = await response.json();
+  return {
+    id: delivery._id,
+    customer: delivery.customerName,
+    product: data.product,
+    quantity: data.quantity,
+    date: new Date(delivery.createdAt).toISOString().slice(0, 10),
+    status: 'Created'
+  };
+};
+
+export const updateDeliveryStatus = async (id, newStatus) => {
+  const endpoint = newStatus === 'Dispatched' ? 'dispatch' : 'deliver';
+  const response = await fetch(`${API_URL}/deliveries/${id}/${endpoint}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error updating status');
+  }
+  return await response.json();
+};
 
 // ── Transfers ─────────────────────────────────────────────────────────────────
-export const getTransfers = async () => { await delay(); return [...transfers] }
+export const getTransfers = async () => {
+  const response = await fetch(`${API_URL}/transfers`, { headers: getAuthHeaders() });
+  const data = await response.json();
+  
+  return data.map(t => ({
+    id: t._id,
+    product: t.productId?.name || 'Unknown',
+    quantity: t.quantity,
+    from: t.fromLocation,
+    to: t.toLocation,
+    date: new Date(t.createdAt).toISOString().slice(0, 10),
+    status: t.status === 'pending' ? 'Pending' : 'Completed',
+  }));
+};
 
 export const createTransfer = async (data) => {
-  await delay()
-  const transfer = {
-    ...data,
-    id: nextId++,
-    quantity: Number(data.quantity),
-    date: new Date().toISOString().slice(0, 10),
-    status: 'Pending',
+  const products = await getProducts();
+  const product = products.find(p => p.name.toLowerCase() === data.product.toLowerCase());
+  
+  if (!product) throw new Error('Product not found in database');
+
+  const response = await fetch(`${API_URL}/transfers`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      productId: product._id,
+      quantity: Number(data.quantity),
+      fromLocation: data.from,
+      toLocation: data.to,
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error creating transfer');
   }
-  transfers.unshift(transfer)
-  return transfer
-}
-
-// ── Dashboard Stats ───────────────────────────────────────────────────────────
-export const getDashboardStats = async () => {
-  await delay()
-
-  const categoryMap = {}
-  products.forEach((p) => {
-    categoryMap[p.category] = (categoryMap[p.category] || 0) + p.stock
-  })
-
-  const recentActivity = [
-    ...receipts.slice(0, 2).map((r)  => ({ type: 'receipt',  text: `Received ${r.quantity} × ${r.product}`,  date: r.date })),
-    ...deliveries.slice(0, 2).map((d) => ({ type: 'delivery', text: `Shipped ${d.quantity} × ${d.product}`,   date: d.date })),
-    ...transfers.slice(0, 2).map((t)  => ({ type: 'transfer', text: `Moved ${t.quantity} × ${t.product}`,     date: t.date })),
-  ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6)
+  const transfer = await response.json();
 
   return {
-    totalProducts:     products.length,
-    lowStockItems:     products.filter((p) => p.stock <= 15).length,
-    pendingReceipts:   receipts.filter((r) => r.status === 'Pending').length,
-    pendingDeliveries: deliveries.filter((d) => d.status === 'Pending').length,
-    stockByCategory:   Object.entries(categoryMap).map(([name, value]) => ({ name, value })),
-    topProducts:       [...products].sort((a, b) => b.stock - a.stock).slice(0, 5),
-    recentActivity,
+    id: transfer._id,
+    product: data.product,
+    quantity: data.quantity,
+    from: data.from,
+    to: data.to,
+    date: new Date().toISOString().slice(0, 10),
+    status: 'Pending'
+  };
+};
+
+export const updateTransferStatus = async (id, newStatus) => {
+  const response = await fetch(`${API_URL}/transfers/${id}/complete`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error completing transfer');
   }
-}
+  return await response.json();
+};
+
+// ── Dashboard Stats (Dummy implementation to prevent crashing) ───────────────
+export const getDashboardStats = async () => {
+    // Return dummy stats for now to keep frontend dashboard working
+    return {
+      totalProducts: 8,
+      lowStockItems: 5,
+      pendingReceipts: 1,
+      pendingDeliveries: 2,
+      stockByCategory: [
+        { name: 'Raw Material', value: 450 },
+        { name: 'Electronics', value: 134 },
+      ],
+      topProducts: [],
+      recentActivity: []
+    }
+};
+
+// ── Dummy implementations to prevent other pages from crashing ───────────────
+export const getReceipts = async () => {
+  return [];
+};
+
+export const createReceipt = async (data) => {
+  return { id: 'dummy-1', ...data, status: 'Completed' };
+};
+
+export const deleteProduct = async (id) => {
+  return { success: true };
+};
+
