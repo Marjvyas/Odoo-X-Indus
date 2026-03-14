@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getTransfers, createTransfer } from '../services/api'
 
-const LOCATIONS = ['Main WH', 'Store A', 'Store B', 'Cold Storage', 'Dispatch Bay']
 const EMPTY_FORM = { from: '', to: '', product: '', quantity: '' }
 
 function StatusBadge({ status }) {
@@ -16,13 +15,16 @@ function StatusBadge({ status }) {
   )
 }
 
-export default function Transfers() {
+export default function Transfers({ warehouses = [], setWarehouses }) {
   const [transfers, setTransfers] = useState([])
   const [form, setForm]           = useState(EMPTY_FORM)
   const [saving, setSaving]       = useState(false)
   const [loading, setLoading]     = useState(true)
   const [success, setSuccess]     = useState(false)
   const [error, setError]         = useState('')
+
+  // Derive locations from warehouses prop
+  const locations = warehouses.map(w => w.name)
 
   useEffect(() => {
     getTransfers().then((data) => { setTransfers(data); setLoading(false) })
@@ -34,10 +36,99 @@ export default function Transfers() {
       setError('Source and destination locations must be different.')
       return
     }
+
+    // --- Inventory Validation & Update Logic ---
+    const sourceWarehouseIndex = warehouses.findIndex(w => w.name === form.from)
+    const destWarehouseIndex = warehouses.findIndex(w => w.name === form.to)
+
+    if (sourceWarehouseIndex === -1 || destWarehouseIndex === -1) {
+      setError('Invalid warehouse selection.')
+      return 
+    }
+
+    const sourceWarehouse = warehouses[sourceWarehouseIndex]
+    const destWarehouse = warehouses[destWarehouseIndex]
+    const transferQty = parseInt(form.quantity)
+
+    // Find product in source (case-insensitive search)
+    const sourceProductIndex = sourceWarehouse.inventory?.findIndex(
+      p => p.name.toLowerCase() === form.product.toLowerCase()
+    )
+
+    if (sourceProductIndex === -1 || sourceProductIndex === undefined) {
+      setError(`Product "${form.product}" not found in ${form.from}.`)
+      return
+    }
+
+    const sourceProduct = sourceWarehouse.inventory[sourceProductIndex]
+
+    if (sourceProduct.quantity < transferQty) {
+      setError(`Insufficient stock in ${form.from}. Available: ${sourceProduct.quantity}`)
+      return
+    }
+
+    // --- Proceed with Transfer ---
     setError('')
     setSaving(true)
+
+    // 1. Create Transfer Record (API)
     const transfer = await createTransfer(form)
     setTransfers((prev) => [transfer, ...prev])
+
+    // 2. Update Warehouse State
+    const newWarehouses = [...warehouses]
+    
+    // Decrease Source
+    const newSourceInventory = [...sourceWarehouse.inventory]
+    newSourceInventory[sourceProductIndex] = {
+      ...sourceProduct,
+      quantity: sourceProduct.quantity - transferQty,
+      lastMoved: "Just now"
+    }
+    
+    // Update calculated totals for source
+    newWarehouses[sourceWarehouseIndex] = {
+      ...sourceWarehouse,
+      inventory: newSourceInventory,
+      quantity: sourceWarehouse.quantity - transferQty,
+      updated: "Just now"
+    }
+
+    // Increase Destination
+    const newDestInventory = [...(destWarehouse.inventory || [])]
+    const destProductIndex = newDestInventory.findIndex(
+      p => p.name.toLowerCase() === form.product.toLowerCase()
+    )
+
+    if (destProductIndex > -1) {
+      // Product exists in dest, update quantity
+      newDestInventory[destProductIndex] = {
+        ...newDestInventory[destProductIndex],
+        quantity: newDestInventory[destProductIndex].quantity + transferQty,
+        lastMoved: "Just now"
+      }
+    } else {
+      // Product doesn't exist, add new item
+      // Copy details from source product but reset quantity
+      newDestInventory.push({
+        ...sourceProduct,
+        id: Date.now(), // New unique ID for this instance
+        quantity: transferQty,
+        lastMoved: "Just now"
+      })
+    }
+
+    // Update calculated totals for dest
+    newWarehouses[destWarehouseIndex] = {
+      ...destWarehouse,
+      inventory: newDestInventory,
+      quantity: destWarehouse.quantity + transferQty,
+      products: newDestInventory.length,
+      updated: "Just now"
+    }
+
+    setWarehouses(newWarehouses)
+
     setForm(EMPTY_FORM)
     setSaving(false)
     setSuccess(true)
@@ -90,7 +181,7 @@ export default function Transfers() {
                 className={inputClass}
               >
                 <option value="">Select source...</option>
-                {LOCATIONS.map((l) => <option key={l}>{l}</option>)}
+                {locations.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
           </div>
@@ -111,7 +202,7 @@ export default function Transfers() {
               className={inputClass}
             >
               <option value="">Select destination...</option>
-              {LOCATIONS.filter((l) => l !== form.from).map((l) => <option key={l}>{l}</option>)}
+              {locations.filter((l) => l !== form.from).map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
 

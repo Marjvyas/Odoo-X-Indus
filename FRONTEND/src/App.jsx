@@ -6,6 +6,7 @@ import Products from './pages/Products'
 import Reciepts from './pages/Reciepts'
 import Delivery from './pages/Delivery'
 import Transfers from './pages/Transfers'
+import Warehouses from './pages/Warehouses'
 
 const pageTitles = {
   dashboard: 'Dashboard',
@@ -14,11 +15,72 @@ const pageTitles = {
   delivery: 'Delivery Orders',
   transfers: 'Internal Transfers',
   adjustments: 'Inventory Adjustments',
+  warehouses: 'Warehouse Management',
   settings: 'Warehouse Settings',
 }
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard')
+  
+  // Lifted state for warehouses shared between Warehouses and Transfers pages
+  const [warehouses, setWarehouses] = useState([
+    { 
+      id: 1, 
+      name: "Main Warehouse", 
+      location: "Ahmedabad", 
+      products: 4, 
+      quantity: 4200, 
+      lowStock: 1, 
+      updated: "Today",
+      inventory: [
+        { id: 101, name: "Steel Rods", sku: "SR-001", quantity: 2000, category: "Raw Material", lastMoved: "Today" },
+        { id: 102, name: "Copper Wire", sku: "CW-022", quantity: 1500, category: "Raw Material", lastMoved: "Yesterday" },
+        { id: 103, name: "Plastic Case", sku: "PC-105", quantity: 650, category: "Parts", lastMoved: "3 days ago" },
+        { id: 104, name: "Circuit Board", sku: "CB-550", quantity: 50, category: "Components", lastMoved: "Today" },
+      ]
+    },
+    { 
+      id: 2, 
+      name: "Production Store", 
+      location: "Factory Floor", 
+      products: 3, 
+      quantity: 2100, 
+      lowStock: 0, 
+      updated: "Yesterday",
+      inventory: [
+        { id: 201, name: "Steel Rods", sku: "SR-001", quantity: 1000, category: "Raw Material", lastMoved: "2 days ago" },
+        { id: 202, name: "Copper Wire", sku: "CW-022", quantity: 800, category: "Raw Material", lastMoved: "Yesterday" },
+        { id: 203, name: "Plastic Case", sku: "PC-105", quantity: 300, category: "Parts", lastMoved: "Yesterday" },
+      ]
+    },
+    { 
+      id: 3, 
+      name: "Retail Warehouse", 
+      location: "Mumbai", 
+      products: 3, 
+      quantity: 980, 
+      lowStock: 1, 
+      updated: "2 days ago",
+      inventory: [
+         { id: 301, name: "Circuit Board", sku: "CB-550", quantity: 400, category: "Components", lastMoved: "5 days ago" },
+         { id: 302, name: "Wireless Mouse", sku: "WM-002", quantity: 500, category: "Electronics", lastMoved: "Today" },
+         { id: 303, name: "USB-C Cable", sku: "USBC-001", quantity: 80, category: "Electronics", lastMoved: "Yesterday" },
+      ]
+    },
+    { 
+      id: 4, 
+      name: "Spare Parts Store", 
+      location: "Delhi", 
+      products: 2, 
+      quantity: 450, 
+      lowStock: 0, 
+      updated: "Just now",
+      inventory: [
+        { id: 401, name: "Monitor Cleaner", sku: "MC-008", quantity: 200, category: "Accessories", lastMoved: "Today" },
+        { id: 402, name: "Laptop Stand", sku: "LS-004", quantity: 250, category: "Furniture", lastMoved: "Today" },
+      ]
+    }
+  ]);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -26,8 +88,9 @@ function App() {
       case 'products':    return <Products />
       case 'receipts':    return <Reciepts />
       case 'delivery':    return <Delivery />
-      case 'transfers':   return <Transfers />
+      case 'transfers':   return <Transfers warehouses={warehouses} setWarehouses={setWarehouses} />
       case 'adjustments': return <InventoryAdjustments />
+      case 'warehouses':  return <Warehouses warehouses={warehouses} setWarehouses={setWarehouses} />
       default:            return <Dashboard />
     }
   }
