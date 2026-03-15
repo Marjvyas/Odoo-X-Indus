@@ -75,72 +75,77 @@ export default function Transfers({ warehouses = [], setWarehouses }) {
     }
 
     // --- Proceed with Transfer ---
-    setError('')
-    setSaving(true)
+    setError('');
+    setSaving(true);
 
-    // 1. Create Transfer Record (API)
-    const transfer = await createTransfer(form)
-    setTransfers((prev) => [transfer, ...prev])
+    try {
+      // 1. Create Transfer Record (API)
+      const transfer = await createTransfer(form);
+      setTransfers((prev) => [transfer, ...prev]);
 
-    // 2. Update Warehouse State
-    const newWarehouses = [...warehouses]
-    
-    // Decrease Source
-    const newSourceInventory = [...sourceWarehouse.inventory]
-    newSourceInventory[sourceProductIndex] = {
-      ...sourceProduct,
-      quantity: sourceProduct.quantity - transferQty,
-      lastMoved: "Just now"
-    }
-    
-    // Update calculated totals for source
-    newWarehouses[sourceWarehouseIndex] = {
-      ...sourceWarehouse,
-      inventory: newSourceInventory,
-      quantity: sourceWarehouse.quantity - transferQty,
-      updated: "Just now"
-    }
-
-    // Increase Destination
-    const newDestInventory = [...(destWarehouse.inventory || [])]
-    const destProductIndex = newDestInventory.findIndex(
-      p => p.name.toLowerCase() === form.product.toLowerCase()
-    )
-
-    if (destProductIndex > -1) {
-      // Product exists in dest, update quantity
-      newDestInventory[destProductIndex] = {
-        ...newDestInventory[destProductIndex],
-        quantity: newDestInventory[destProductIndex].quantity + transferQty,
-        lastMoved: "Just now"
-      }
-    } else {
-      // Product doesn't exist, add new item
-      // Copy details from source product but reset quantity
-      newDestInventory.push({
+      // 2. Update Warehouse State
+      const newWarehouses = [...warehouses];
+      
+      // Decrease Source
+      const newSourceInventory = [...sourceWarehouse.inventory];
+      newSourceInventory[sourceProductIndex] = {
         ...sourceProduct,
-        id: Date.now(), // New unique ID for this instance
-        quantity: transferQty,
+        quantity: sourceProduct.quantity - transferQty,
         lastMoved: "Just now"
-      })
+      };
+      
+      // Update calculated totals for source
+      newWarehouses[sourceWarehouseIndex] = {
+        ...sourceWarehouse,
+        inventory: newSourceInventory,
+        quantity: sourceWarehouse.quantity - transferQty,
+        updated: "Just now"
+      };
+
+      // Increase Destination
+      const newDestInventory = [...(destWarehouse.inventory || [])];
+      const destProductIndex = newDestInventory.findIndex(
+        p => p.name.toLowerCase() === form.product.toLowerCase()
+      );
+
+      if (destProductIndex > -1) {
+        // Product exists in dest, update quantity
+        newDestInventory[destProductIndex] = {
+          ...newDestInventory[destProductIndex],
+          quantity: newDestInventory[destProductIndex].quantity + transferQty,
+          lastMoved: "Just now"
+        };
+      } else {
+        // Product doesn't exist, add new item
+        // Copy details from source product but reset quantity
+        newDestInventory.push({
+          ...sourceProduct,
+          id: Date.now(), // New unique ID for this instance
+          quantity: transferQty,
+          lastMoved: "Just now"
+        });
+      }
+
+      // Update calculated totals for dest
+      newWarehouses[destWarehouseIndex] = {
+        ...destWarehouse,
+        inventory: newDestInventory,
+        quantity: destWarehouse.quantity + transferQty,
+        products: newDestInventory.length,
+        updated: "Just now"
+      };
+
+      setWarehouses(newWarehouses);
+
+      setForm(EMPTY_FORM);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to create internal transfer');
+    } finally {
+      setSaving(false);
     }
-
-    // Update calculated totals for dest
-    newWarehouses[destWarehouseIndex] = {
-      ...destWarehouse,
-      inventory: newDestInventory,
-      quantity: destWarehouse.quantity + transferQty,
-      products: newDestInventory.length,
-      updated: "Just now"
-    }
-
-    setWarehouses(newWarehouses)
-
-    setForm(EMPTY_FORM)
-    setSaving(false)
-    setSuccess(true)
-    setTimeout(() => setSuccess(false), 3000)
-  }
+  };
 
   const inputClass =
     'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'

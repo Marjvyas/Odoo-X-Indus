@@ -53,18 +53,23 @@ export default function Products() {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    if (editId) {
-      const updated = await updateProduct(editId, form)
-      setProducts((prev) => prev.map((p) => (p.id === editId ? updated : p)))
-    } else {
-      const created = await createProduct(form)
-      setProducts((prev) => [...prev, created])
+    e.preventDefault();
+    setSaving(true);
+    try {
+      if (editId) {
+        const updated = await updateProduct(editId, form);
+        setProducts((prev) => prev.map((p) => (p.id === editId ? updated : p)));
+      } else {
+        const created = await createProduct(form);
+        setProducts((prev) => [...prev, created]);
+      }
+      setShowModal(false);
+    } catch (err) {
+      alert(err.message || 'Failed to save product');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false)
-    setShowModal(false)
-  }
+  };
 
   const inputClass =
     'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'

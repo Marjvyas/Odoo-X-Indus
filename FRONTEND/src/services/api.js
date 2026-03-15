@@ -24,7 +24,8 @@ export const login = async (email, password) => {
 // ── Products ─────────────────────────────────────────────────────────────────
 export const getProducts = async () => {
   const response = await fetch(`${API_URL}/products`, { headers: getAuthHeaders() });
-  return await response.json();
+  const data = await response.json();
+  return data.map(p => ({ ...p, id: p._id }));
 };
 
 export const createProduct = async (productData) => {
@@ -33,7 +34,12 @@ export const createProduct = async (productData) => {
     headers: getAuthHeaders(),
     body: JSON.stringify(productData),
   });
-  return await response.json();
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error creating product');
+  }
+  const p = await response.json();
+  return { ...p, id: p._id };
 };
 
 export const updateProduct = async (id, productData) => {
@@ -42,7 +48,12 @@ export const updateProduct = async (id, productData) => {
     headers: getAuthHeaders(),
     body: JSON.stringify(productData),
   });
-  return await response.json();
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error updating product');
+  }
+  const p = await response.json();
+  return { ...p, id: p._id };
 };
 
 // ── Deliveries ────────────────────────────────────────────────────────────────
@@ -193,6 +204,14 @@ export const createReceipt = async (data) => {
 };
 
 export const deleteProduct = async (id) => {
-  return { success: true };
+  const response = await fetch(`${API_URL}/products/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error deleting product');
+  }
+  return await response.json();
 };
 

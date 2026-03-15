@@ -36,15 +36,20 @@ export default function Delivery() {
   }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    const delivery = await createDelivery(form)
-    setDeliveries((prev) => [delivery, ...prev])
-    setForm(EMPTY_FORM)
-    setSaving(false)
-    setSuccess(true)
-    setTimeout(() => setSuccess(false), 3000)
-  }
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const delivery = await createDelivery(form);
+      setDeliveries((prev) => [delivery, ...prev]);
+      setForm(EMPTY_FORM);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      alert(err.message || 'Failed to create delivery');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const inputClass =
     'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
